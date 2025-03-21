@@ -1,12 +1,12 @@
-const { cmd, commands } = require("../command");
+const { cmd } = require("../command");
 const yts = require("yt-search");
-const { ytmp4 } = require("@vreden/youtube_scraper");
+const axios = require("axios");
 
 cmd(
   {
     pattern: "video",
     react: "🎥",
-    desc: "Download video",
+    desc: "Download YouTube Video",
     category: "download",
     filename: __filename,
   },
@@ -14,71 +14,33 @@ cmd(
     robin,
     mek,
     m,
-    {
-      from,
-      quoted,
-      body,
-      isCmd,
-      command,
-      args,
-      q,
-      isGroup,
-      sender,
-      senderNumber,
-      botNumber2,
-      botNumber,
-      pushname,
-      isMe,
-      isOwner,
-      groupMetadata,
-      groupName,
-      participants,
-      groupAdmins,
-      isBotAdmins,
-      isAdmins,
-      reply,
-    }
+    { from, quoted, body, isCmd, command, args, q, isGroup, sender, reply }
   ) => {
     try {
-      if (!q) return reply("*⛔ Please provide a video name or link!* ❤️");
+      if (!q) return reply("*⛔ Provide a video name or YouTube link!* 🎥❤️");
 
       // Search for the video
       const search = await yts(q);
       const data = search.videos[0];
 
       if (!data) {
-        return reply("❌ *No results found. Try a different keyword!*");
+        return reply("❌ *No results found. Try another keyword!*");
       }
 
       const url = data.url;
 
-      // Validate timestamp
-      if (!data.timestamp) {
-        return reply("❌ *Error: Unable to retrieve video duration.*");
-      }
-
-      let durationParts = data.timestamp.split(":").map(Number);
-      let totalSeconds =
-        durationParts.length === 3
-          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-          : durationParts[0] * 60 + durationParts[1];
-
-      if (totalSeconds > 1800) {
-        return reply("⏱️ *Video limit is 30 minutes!*");
-      }
-
       // Video metadata description
       let desc = `
-*❤️ROBIN VIDEO DOWNLOADER❤️*
+🎥 *ROBIN MAX VIDEO DOWNLOADER* 🎥
 
-🎬 *Title* : ${data.title}
-📝 *Description* : ${data.description || "No description available"}
+📌 *Title* : ${data.title}
 ⏳ *Duration* : ${data.timestamp}
-📅 *Uploaded* : ${data.ago}
 👁️ *Views* : ${data.views}
-🔗 *URL* : ${data.url}
+📅 *Uploaded* : ${data.ago}
+📺 *Channel* : ${data.author.name}
+🔗 *Link* : ${data.url}
 
-📌 *Made by S_I_H_I_L_E_L*
+📌 *Made by ROBIN MAX*
 `;
 
       // Send metadata with thumbnail
@@ -88,44 +50,55 @@ cmd(
         { quoted: mek }
       );
 
-      // Download the video using @vreden/youtube_scraper
-      const quality = "360"; // Change quality if needed
-      const videoData = await ytmp4(url, quality).catch((err) => {
-        console.error(err);
-        return null;
-      });
+      // Video download function
+      const downloadVideo = async (url, quality) => {
+        const apiUrl = `https://p.oceansaver.in/ajax/download.php?format=${quality}&url=${encodeURIComponent(
+          url
+        )}&api=dfcb6d76f2f6a9894gjkege8a4ab232222`;
+        
+        const response = await axios.get(apiUrl);
 
-      if (!videoData || !videoData.download || !videoData.download.url) {
-        return reply("❌ *Error: Unable to fetch the video. Please try again later!*");
-      }
+        if (!response.data || !response.data.success) {
+          throw new Error("❌ Failed to fetch video details.");
+        }
 
-      // Send video file
+        const { id, title } = response.data;
+
+        // Wait for download URL generation
+        const progressUrl = `https://p.oceansaver.in/ajax/progress.php?id=${id}`;
+        while (true) {
+          const progress = await axios.get(progressUrl);
+
+          if (progress.data.success && progress.data.progress === 100) {
+            const videoBuffer = await axios.get(progress.data.download_url, {
+              responseType: "arraybuffer",
+            });
+            return { buffer: videoBuffer.data, title };
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds before checking again
+        }
+      };
+
+      // Specify desired quality (default: 720p)
+      const quality = "720";
+
+      // Download and send video
+      const video = await downloadVideo(url, quality);
       await robin.sendMessage(
         from,
         {
-          video: { url: videoData.download.url },
+          video: video.buffer,
           mimetype: "video/mp4",
-          caption: "🎥 *Here is your requested video!*",
+          caption: `🎥 *${video.title}*\n\n📌 *Made by ROBIN MAX*`,
         },
         { quoted: mek }
       );
 
-      // Send as a document (optional)
-      await robin.sendMessage(
-        from,
-        {
-          document: { url: videoData.download.url },
-          mimetype: "video/mp4",
-          fileName: `${data.title}.mp4`,
-          caption: "📌 *Made by S_I_H_I_L_E_L*",
-        },
-        { quoted: mek }
-      );
-
-      return reply("*✅ Thanks for using my bot!* 🎥❤️");
+      reply("*✅ Thanks for using my bot!* 🎥❤️");
     } catch (e) {
       console.error(e);
-      reply(`❌ *Error: ${e.message}*`);
+      reply(`❌ Error: ${e.message}`);
     }
   }
 );
