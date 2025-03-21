@@ -12,4 +12,7 @@ module.exports = {
   ALIVE_IMG: process.env.ALIVE_IMG || "https://raw.githubusercontent.com/Dark-Robin/Bot-Helper/refs/heads/main/autoimage/Bot%20robin%20iz%20alive.jpg",
   ALIVE_MSG: process.env.ALIVE_MSG || "WORKING...",
   MODE: process.env.MODE || "public",
+  AUTO_VOICE: process.env.AUTO_VOICE || "true",
+  AUTO_REPLY: process.env.AUTO_REPLY || "true",
+  AUTO_STICKER: process.env.AUTO_STICKER || "true",
 };
